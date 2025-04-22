@@ -1,4 +1,4 @@
-package com.example.proximity_search;
+package com.example.proximity_search.utils;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
