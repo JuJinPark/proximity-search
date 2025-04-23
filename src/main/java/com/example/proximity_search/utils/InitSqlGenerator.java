@@ -91,7 +91,8 @@ public class InitSqlGenerator {
         writer.println("CREATE TABLE items_default (");
         writer.println("  id INT AUTO_INCREMENT PRIMARY KEY,");
         writer.println("  lat DOUBLE NOT NULL,");
-        writer.println("  lng DOUBLE NOT NULL");
+        writer.println("  lng DOUBLE NOT NULL,");
+        writer.println("  description VARCHAR(255) NOT NULL");
         writer.println(");\n");
 
         // Table with composite index
@@ -100,6 +101,7 @@ public class InitSqlGenerator {
         writer.println("  id INT AUTO_INCREMENT PRIMARY KEY,");
         writer.println("  lat DOUBLE NOT NULL,");
         writer.println("  lng DOUBLE NOT NULL,");
+        writer.println("  description VARCHAR(255) NOT NULL,");
         writer.println("  INDEX idx_lat_lng (lat, lng)");
         writer.println(");\n");
 
@@ -108,6 +110,7 @@ public class InitSqlGenerator {
         writer.println("CREATE TABLE items_spatial (");
         writer.println("  id INT AUTO_INCREMENT PRIMARY KEY,");
         writer.println("  location POINT NOT NULL SRID 4326,");
+        writer.println("  description VARCHAR(255) NOT NULL,");
         writer.println("  SPATIAL INDEX(location)");
         writer.println(");\n");
     }
@@ -115,20 +118,22 @@ public class InitSqlGenerator {
     private static void generateInsertStatements(PrintWriter writer, int rowCount) {
         Random random = new Random();
         int written = 0;
+        int currentId = 1;
 
         while (written < rowCount) {
             int currentBatch = Math.min(BATCH_SIZE, rowCount - written);
             
-            StringBuilder defaultInsert = new StringBuilder("INSERT INTO items_default (lat, lng) VALUES\n");
-            StringBuilder compositeInsert = new StringBuilder("INSERT INTO items_composite (lat, lng) VALUES\n");
-            StringBuilder spatialInsert = new StringBuilder("INSERT INTO items_spatial (location) VALUES\n");
+            StringBuilder defaultInsert = new StringBuilder("INSERT INTO items_default (lat, lng, description) VALUES\n");
+            StringBuilder compositeInsert = new StringBuilder("INSERT INTO items_composite (lat, lng, description) VALUES\n");
+            StringBuilder spatialInsert = new StringBuilder("INSERT INTO items_spatial (location, description) VALUES\n");
 
             for (int i = 0; i < currentBatch; i++) {
                 double lat = generateRandomLatitude(random);
                 double lng = generateRandomLongitude(random);
+                String description = "Location " + currentId;
 
-                String latlng = "(" + lat + ", " + lng + ")";
-                String spatialPoint = "(ST_PointFromText('POINT(" + lat + " " + lng + ")', 4326))";
+                String latlng = String.format("(%f, %f, '%s')", lat, lng, description);
+                String spatialPoint = String.format("(ST_PointFromText('POINT(%f %f)', 4326), '%s')", lat, lng, description);
 
                 boolean isLastRow = i == currentBatch - 1;
                 String separator = isLastRow ? ";\n" : ",\n";
@@ -136,6 +141,8 @@ public class InitSqlGenerator {
                 defaultInsert.append(latlng).append(separator);
                 compositeInsert.append(latlng).append(separator);
                 spatialInsert.append(spatialPoint).append(separator);
+
+                currentId++;
             }
 
             writer.println(defaultInsert);
