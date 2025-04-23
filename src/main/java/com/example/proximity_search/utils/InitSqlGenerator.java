@@ -1,10 +1,12 @@
-package com.example.proximitysearch.util;
+package com.example.proximity_search.utils;
 
+import java.io.*;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.Random;
+import java.util.zip.GZIPOutputStream;
 
 public class InitSqlGenerator {
 
@@ -14,36 +16,66 @@ public class InitSqlGenerator {
     private static final double LNG_MIN = 126.8;
     private static final double LNG_MAX = 127.1;
 
-    private static final int BATCH_SIZE = 1000;
+    private static final int BATCH_SIZE = 2000;
     private static final String OUTPUT_DIR = "mysql-init";
     private static final String OUTPUT_FILE = OUTPUT_DIR + "/init.sql";
 
     public static void main(String[] args) {
         if (args.length != 1) {
             System.err.println("Usage: java InitSqlGenerator <rowCount>");
+            System.err.println("Example: java InitSqlGenerator 1000");
             return;
         }
 
         int rowCount = Integer.parseInt(args[0]);
-        createOutputDirectory();
-        generateSqlFile(rowCount);
+        
+        createOutputDirectory(OUTPUT_DIR);
+        generateSqlFile(rowCount, OUTPUT_FILE);
+        compressFile(OUTPUT_FILE);
     }
 
-    private static void createOutputDirectory() {
-        File dir = new File(OUTPUT_DIR);
+    private static void createOutputDirectory(String outputDir) {
+        File dir = new File(outputDir);
         if (!dir.exists()) {
-            dir.mkdir();
+            dir.mkdirs();
         }
     }
 
-    private static void generateSqlFile(int rowCount) {
-        System.out.println("🔧 Generating " + rowCount + " rows → " + OUTPUT_FILE);
+    private static void compressFile(String filePath) {
+        String gzipPath = filePath + ".gz";
+        System.out.println("🗜️ Compressing the SQL file...");
 
-        try (PrintWriter writer = new PrintWriter(new FileWriter(OUTPUT_FILE))) {
+        try (FileInputStream fis = new FileInputStream(filePath);
+             FileOutputStream fos = new FileOutputStream(gzipPath);
+             GZIPOutputStream gzos = new GZIPOutputStream(fos);
+             BufferedInputStream bis = new BufferedInputStream(fis)) {
+
+            byte[] buffer = new byte[1024];
+            int len;
+            while ((len = bis.read(buffer)) > 0) {
+                gzos.write(buffer, 0, len);
+            }
+            
+            // Delete the original file after successful compression
+            if (new File(filePath).delete()) {
+                System.out.println("✨ Done! Output saved to: " + gzipPath);
+            } else {
+                System.err.println("Warning: Could not delete original file: " + filePath);
+            }
+        } catch (IOException e) {
+            System.err.println("Error compressing file: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+    private static void generateSqlFile(int rowCount, String outputFile) {
+        System.out.println("📝 Generating " + rowCount + " rows → " + outputFile);
+
+        try (PrintWriter writer = new PrintWriter(new FileWriter(outputFile))) {
             writeSchema(writer);
             generateInsertStatements(writer, rowCount);
-            System.out.println("✅ Done. File saved at: " + OUTPUT_FILE);
         } catch (IOException e) {
+            System.err.println("Error generating SQL file: " + e.getMessage());
             e.printStackTrace();
         }
     }
@@ -115,15 +147,15 @@ public class InitSqlGenerator {
     }
 
     private static double generateRandomLatitude(Random random) {
-        return round(LAT_MIN + (LAT_MAX - LAT_MIN) * random.nextDouble(), 6);
+        return round(LAT_MIN + (LAT_MAX - LAT_MIN) * random.nextDouble());
     }
 
     private static double generateRandomLongitude(Random random) {
-        return round(LNG_MIN + (LNG_MAX - LNG_MIN) * random.nextDouble(), 6);
+        return round(LNG_MIN + (LNG_MAX - LNG_MIN) * random.nextDouble());
     }
 
-    private static double round(double value, int precision) {
-        double scale = Math.pow(10, precision);
+    private static double round(double value) {
+        double scale = Math.pow(10, 6);
         return Math.round(value * scale) / scale;
     }
 }
